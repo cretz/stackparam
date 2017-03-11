@@ -1,6 +1,8 @@
 extern crate jni_sys;
 extern crate libc;
 
+mod jvmti_sys;
+
 use jni_sys::JavaVM;
 use libc::{c_char, c_void};
 
