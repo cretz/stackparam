@@ -1,0 +1,17 @@
+group 'stack-param'
+version '1.0-SNAPSHOT'
+
+apply plugin: 'java'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testCompile "junit:junit:4.12"
+}
+
+test {
+    // testLogging.quiet.showStandardStreams = true
+    jvmArgs '-agentpath:../target/debug/' + System.mapLibraryName('stack_param')
+}

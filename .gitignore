@@ -1,0 +1,9 @@
+target
+/thoughts.txt
+/.idea
+/target
+/Cargo.lock
+/stack-param.iml
+/javalib/.idea
+/javalib/build
+/javalib/.gradle
