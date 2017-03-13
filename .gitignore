@@ -7,3 +7,5 @@ target
 /javalib/.idea
 /javalib/build
 /javalib/.gradle
+/javalib/agent-tests/build
+/javalib/ow2-manip/build

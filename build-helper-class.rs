@@ -4,31 +4,26 @@ extern crate env_logger;
 
 use std::process::Command;
 
-#[test]
-fn test_simple() {
-    let _ = env_logger::init();
-
-    // Run the gradle test that references this agent
+fn main() {
+    // Only build the class helper if it's not already there
+    //    if !Path::new("javalib/ow2-manip/build/classes/main/stackparam/Ow2AsmManip.class").exists() {
     let javalib_path = std::env::current_dir().expect("No current dir").join("javalib");
     let mut gradle_path = javalib_path.join("gradlew");
     if cfg!(target_os = "windows") {
         gradle_path.set_extension("bat");
     }
-    info!("Starting Gradle at {}", gradle_path.to_string_lossy());
+
+    println!("Starting Gradle at {}", gradle_path.to_string_lossy());
 
     let output = Command::new(gradle_path)
         .current_dir(javalib_path)
         .arg("--no-daemon")
-        .arg("-q")
-        .arg(":agent-tests:cleanTest")
-        .arg(":agent-tests:test")
+        .arg(":ow2-manip:classes")
         .output()
         .expect("Couldn't start gradle");
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    info!("stdout: {}", stdout);
-    info!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-
+    println!("Gradle stdout: {}", String::from_utf8_lossy(&output.stdout));
+    println!("Gradle stderr: {}", String::from_utf8_lossy(&output.stderr));
     assert!(output.status.success());
-    //    assert_eq!("Loaded!\nUnloaded!\n", stdout);
+    //    }
 }

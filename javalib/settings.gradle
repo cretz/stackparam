@@ -1,2 +1,4 @@
 rootProject.name = 'stack-param'
 
+include 'ow2-manip'
+include 'agent-tests'

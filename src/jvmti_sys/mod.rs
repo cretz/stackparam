@@ -1,9 +1,11 @@
+// Modified from https://github.com/sfackler/rust-jni-sys to clean up naming, use jni-sys, and get rid of libc
 #![allow(non_snake_case, non_camel_case_types, dead_code)]
 
 extern crate jni_sys;
 
-use libc::{c_char, c_uchar, c_int, c_uint, c_void};
-use jni_sys::{jobject, jlong, jint, jvalue, jchar, jboolean, jfloat, jdouble, jclass, jmethodID, jfieldID, JNIEnv, JNINativeInterface_};
+use std::os::raw::{c_char, c_uchar, c_int, c_uint, c_void};
+use jni_sys::{jobject, jlong, jint, jvalue, jchar, jboolean, jfloat, jdouble, jclass, jmethodID,
+              jfieldID, JNIEnv, JNINativeInterface_};
 use std::mem;
 
 pub const JVMTI_VERSION_1: c_uint = 805371904;
@@ -232,7 +234,7 @@ pub const JVMTI_RESOURCE_EXHAUSTED_OOM_ERROR: c_uint = 1;
 pub const JVMTI_RESOURCE_EXHAUSTED_JAVA_HEAP: c_uint = 2;
 pub const JVMTI_RESOURCE_EXHAUSTED_THREADS: c_uint = 4;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub enum jvmtiError {
     JVMTI_ERROR_NONE = 0,
@@ -371,41 +373,86 @@ pub const JVMTI_MAX_EVENT_TYPE_VAL: c_uint = 84;
 //pub type jvmtiAddrLocationMap = Struct__jvmtiAddrLocationMap;
 //#[allow(non_camel_case_types)]
 
-pub type jvmtiStartFunction =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv, jni_env: *mut JNIEnv, arg: *mut c_void) -> ()>;
-pub type jvmtiHeapIterationCallback =
-    Option<unsafe extern "C" fn(class_tag: jlong, size: jlong, tag_ptr: *mut jlong, length: jint, user_data: *mut c_void) -> jint>;
+pub type jvmtiStartFunction = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                          jni_env: *mut JNIEnv,
+                                                          arg: *mut c_void)
+                                                          -> ()>;
+pub type jvmtiHeapIterationCallback = Option<unsafe extern "C" fn(class_tag: jlong,
+                                                                  size: jlong,
+                                                                  tag_ptr: *mut jlong,
+                                                                  length: jint,
+                                                                  user_data: *mut c_void)
+                                                                  -> jint>;
 pub type jvmtiHeapReferenceCallback =
-    Option<unsafe extern "C" fn(reference_kind: jvmtiHeapReferenceKind, reference_info: *const jvmtiHeapReferenceInfo, class_tag: jlong,
-                                referrer_class_tag: jlong, size: jlong, tag_ptr: *mut jlong, referrer_tag_ptr: *mut jlong, length: jint,
-                                user_data: *mut c_void) -> jint>;
+    Option<unsafe extern "C" fn(reference_kind: jvmtiHeapReferenceKind,
+                                reference_info: *const jvmtiHeapReferenceInfo,
+                                class_tag: jlong,
+                                referrer_class_tag: jlong,
+                                size: jlong,
+                                tag_ptr: *mut jlong,
+                                referrer_tag_ptr: *mut jlong,
+                                length: jint,
+                                user_data: *mut c_void)
+                                -> jint>;
 pub type jvmtiPrimitiveFieldCallback =
-    Option<unsafe extern "C" fn(kind: jvmtiHeapReferenceKind, info: *const jvmtiHeapReferenceInfo, object_class_tag: jlong,
-                                object_tag_ptr: *mut jlong, value: jvalue, value_type: jvmtiPrimitiveType,
-                                user_data: *mut c_void) -> jint>;
+    Option<unsafe extern "C" fn(kind: jvmtiHeapReferenceKind,
+                                info: *const jvmtiHeapReferenceInfo,
+                                object_class_tag: jlong,
+                                object_tag_ptr: *mut jlong,
+                                value: jvalue,
+                                value_type: jvmtiPrimitiveType,
+                                user_data: *mut c_void)
+                                -> jint>;
 pub type jvmtiArrayPrimitiveValueCallback =
-    Option<unsafe extern "C" fn(class_tag: jlong, size: jlong, tag_ptr: *mut jlong, element_count: jint, element_type: jvmtiPrimitiveType,
-                                elements: *const c_void, user_data: *mut c_void) -> jint>;
-pub type jvmtiStringPrimitiveValueCallback =
-    Option<unsafe extern "C" fn(class_tag: jlong, size: jlong, tag_ptr: *mut jlong, value: *const jchar, value_length: jint,
-                                user_data: *mut c_void) -> jint>;
-pub type jvmtiReservedCallback =
-    Option<extern "C" fn() -> jint>;
-pub type jvmtiHeapObjectCallback =
-    Option<unsafe extern "C" fn(class_tag: jlong, size: jlong, tag_ptr: *mut jlong, user_data: *mut c_void) -> jvmtiIterationControl>;
-pub type jvmtiHeapRootCallback =
-    Option<unsafe extern "C" fn(root_kind: jvmtiHeapRootKind, class_tag: jlong, size: jlong, tag_ptr: *mut jlong,
-                                user_data: *mut c_void) -> jvmtiIterationControl>;
-pub type jvmtiStackReferenceCallback =
-    Option<unsafe extern "C" fn(root_kind: jvmtiHeapRootKind, class_tag: jlong, size: jlong, tag_ptr: *mut jlong, thread_tag: jlong,
-                                depth: jint, method: jmethodID, slot: jint, user_data: *mut c_void) -> jvmtiIterationControl>;
+    Option<unsafe extern "C" fn(class_tag: jlong,
+                                size: jlong,
+                                tag_ptr: *mut jlong,
+                                element_count: jint,
+                                element_type: jvmtiPrimitiveType,
+                                elements: *const c_void,
+                                user_data: *mut c_void)
+                                -> jint>;
+pub type jvmtiStringPrimitiveValueCallback = Option<unsafe extern "C" fn(class_tag: jlong,
+                                                                         size: jlong,
+                                                                         tag_ptr: *mut jlong,
+                                                                         value: *const jchar,
+                                                                         value_length: jint,
+                                                                         user_data: *mut c_void)
+                                                                         -> jint>;
+pub type jvmtiReservedCallback = Option<extern "C" fn() -> jint>;
+pub type jvmtiHeapObjectCallback = Option<unsafe extern "C" fn(class_tag: jlong,
+                                                               size: jlong,
+                                                               tag_ptr: *mut jlong,
+                                                               user_data: *mut c_void)
+                                                               -> jvmtiIterationControl>;
+pub type jvmtiHeapRootCallback = Option<unsafe extern "C" fn(root_kind: jvmtiHeapRootKind,
+                                                             class_tag: jlong,
+                                                             size: jlong,
+                                                             tag_ptr: *mut jlong,
+                                                             user_data: *mut c_void)
+                                                             -> jvmtiIterationControl>;
+pub type jvmtiStackReferenceCallback = Option<unsafe extern "C" fn(root_kind: jvmtiHeapRootKind,
+                                                                   class_tag: jlong,
+                                                                   size: jlong,
+                                                                   tag_ptr: *mut jlong,
+                                                                   thread_tag: jlong,
+                                                                   depth: jint,
+                                                                   method: jmethodID,
+                                                                   slot: jint,
+                                                                   user_data: *mut c_void)
+                                                                   -> jvmtiIterationControl>;
 pub type jvmtiObjectReferenceCallback =
-    Option<unsafe extern "C" fn(reference_kind: jvmtiObjectReferenceKind, class_tag: jlong, size: jlong, tag_ptr: *mut jlong,
-                                referrer_tag: jlong, referrer_index: jint, user_data: *mut c_void) -> jvmtiIterationControl>;
-pub type jvmtiExtensionFunction =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv, ...) -> jvmtiError>;
-pub type jvmtiExtensionEvent =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv, ...) -> ()>;
+    Option<unsafe extern "C" fn(reference_kind: jvmtiObjectReferenceKind,
+                                class_tag: jlong,
+                                size: jlong,
+                                tag_ptr: *mut jlong,
+                                referrer_tag: jlong,
+                                referrer_index: jint,
+                                user_data: *mut c_void)
+                                -> jvmtiIterationControl>;
+pub type jvmtiExtensionFunction = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv, ...)
+                                                              -> jvmtiError>;
+pub type jvmtiExtensionEvent = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv, ...) -> ()>;
 
 #[repr(C)]
 #[derive(Copy)]
@@ -417,10 +464,14 @@ pub struct jvmtiThreadInfo {
     pub context_class_loader: jobject,
 }
 impl Clone for jvmtiThreadInfo {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiThreadInfo {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -430,10 +481,14 @@ pub struct jvmtiMonitorStackDepthInfo {
     pub stack_depth: jint,
 }
 impl Clone for jvmtiMonitorStackDepthInfo {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiMonitorStackDepthInfo {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -445,10 +500,14 @@ pub struct jvmtiThreadGroupInfo {
     pub is_daemon: jboolean,
 }
 impl Clone for jvmtiThreadGroupInfo {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiThreadGroupInfo {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -458,10 +517,14 @@ pub struct jvmtiFrameInfo {
     pub location: jlocation,
 }
 impl Clone for jvmtiFrameInfo {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiFrameInfo {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -473,10 +536,14 @@ pub struct jvmtiStackInfo {
     pub frame_count: jint,
 }
 impl Clone for jvmtiStackInfo {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiStackInfo {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -485,10 +552,14 @@ pub struct jvmtiHeapReferenceInfoField {
     pub index: jint,
 }
 impl Clone for jvmtiHeapReferenceInfoField {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiHeapReferenceInfoField {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -497,10 +568,14 @@ pub struct jvmtiHeapReferenceInfoArray {
     pub index: jint,
 }
 impl Clone for jvmtiHeapReferenceInfoArray {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiHeapReferenceInfoArray {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -509,10 +584,14 @@ pub struct jvmtiHeapReferenceInfoConstantPool {
     pub index: jint,
 }
 impl Clone for jvmtiHeapReferenceInfoConstantPool {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiHeapReferenceInfoConstantPool {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -526,10 +605,14 @@ pub struct jvmtiHeapReferenceInfoStackLocal {
     pub slot: jint,
 }
 impl Clone for jvmtiHeapReferenceInfoStackLocal {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiHeapReferenceInfoStackLocal {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -541,10 +624,14 @@ pub struct jvmtiHeapReferenceInfoJniLocal {
     pub method: jmethodID,
 }
 impl Clone for jvmtiHeapReferenceInfoJniLocal {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiHeapReferenceInfoJniLocal {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -560,10 +647,14 @@ pub struct jvmtiHeapReferenceInfoReserved {
     pub reserved8: jlong,
 }
 impl Clone for jvmtiHeapReferenceInfoReserved {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiHeapReferenceInfoReserved {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -580,18 +671,15 @@ impl jvmtiHeapReferenceInfo {
         let raw: *mut u8 = mem::transmute(&self._bindgen_data_);
         mem::transmute(raw.offset(0))
     }
-    pub unsafe fn constant_pool(&mut self)
-                                -> *mut jvmtiHeapReferenceInfoConstantPool {
+    pub unsafe fn constant_pool(&mut self) -> *mut jvmtiHeapReferenceInfoConstantPool {
         let raw: *mut u8 = mem::transmute(&self._bindgen_data_);
         mem::transmute(raw.offset(0))
     }
-    pub unsafe fn stack_local(&mut self)
-                              -> *mut jvmtiHeapReferenceInfoStackLocal {
+    pub unsafe fn stack_local(&mut self) -> *mut jvmtiHeapReferenceInfoStackLocal {
         let raw: *mut u8 = mem::transmute(&self._bindgen_data_);
         mem::transmute(raw.offset(0))
     }
-    pub unsafe fn jni_local(&mut self)
-                            -> *mut jvmtiHeapReferenceInfoJniLocal {
+    pub unsafe fn jni_local(&mut self) -> *mut jvmtiHeapReferenceInfoJniLocal {
         let raw: *mut u8 = mem::transmute(&self._bindgen_data_);
         mem::transmute(raw.offset(0))
     }
@@ -601,10 +689,14 @@ impl jvmtiHeapReferenceInfo {
     }
 }
 impl Clone for jvmtiHeapReferenceInfo {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiHeapReferenceInfo {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -628,10 +720,14 @@ pub struct jvmtiHeapCallbacks {
     pub reserved15: jvmtiReservedCallback,
 }
 impl Clone for jvmtiHeapCallbacks {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiHeapCallbacks {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -642,10 +738,14 @@ pub struct jvmtiClassDefinition {
     pub class_bytes: *const c_uchar,
 }
 impl Clone for jvmtiClassDefinition {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiClassDefinition {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -659,10 +759,14 @@ pub struct jvmtiMonitorUsage {
     pub notify_waiters: *mut jthread,
 }
 impl Clone for jvmtiMonitorUsage {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiMonitorUsage {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -672,10 +776,14 @@ pub struct jvmtiLineNumberEntry {
     pub line_number: jint,
 }
 impl Clone for jvmtiLineNumberEntry {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiLineNumberEntry {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -689,10 +797,14 @@ pub struct jvmtiLocalVariableEntry {
     pub slot: jint,
 }
 impl Clone for jvmtiLocalVariableEntry {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiLocalVariableEntry {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -704,10 +816,14 @@ pub struct jvmtiParamInfo {
     pub null_ok: jboolean,
 }
 impl Clone for jvmtiParamInfo {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiParamInfo {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -722,10 +838,14 @@ pub struct jvmtiExtensionFunctionInfo {
     pub errors: *mut jvmtiError,
 }
 impl Clone for jvmtiExtensionFunctionInfo {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiExtensionFunctionInfo {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -738,10 +858,14 @@ pub struct jvmtiExtensionEventInfo {
     pub params: *mut jvmtiParamInfo,
 }
 impl Clone for jvmtiExtensionEventInfo {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiExtensionEventInfo {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -755,10 +879,14 @@ pub struct jvmtiTimerInfo {
     pub reserved2: jlong,
 }
 impl Clone for jvmtiTimerInfo {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiTimerInfo {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -768,10 +896,14 @@ pub struct jvmtiAddrLocationMap {
     pub location: jlocation,
 }
 impl Clone for jvmtiAddrLocationMap {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiAddrLocationMap {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -783,19 +915,23 @@ pub struct jvmtiCapabilities {
     pub _bindgen_bitfield_4_: c_uint,
 }
 impl Clone for jvmtiCapabilities {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiCapabilities {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 pub type jvmtiEventReserved = Option<extern "C" fn() -> ()>;
-pub type jvmtiEventBreakpoint =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread,
-                                method: jmethodID,
-                                location: jlocation) -> ()>;
+pub type jvmtiEventBreakpoint = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                            jni_env: *mut JNIEnv,
+                                                            thread: jthread,
+                                                            method: jmethodID,
+                                                            location: jlocation)
+                                                            -> ()>;
 pub type jvmtiEventClassFileLoadHook =
     Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
                                 jni_env: *mut JNIEnv,
@@ -804,185 +940,166 @@ pub type jvmtiEventClassFileLoadHook =
                                 name: *const c_char,
                                 protection_domain: jobject,
                                 class_data_len: jint,
-                                class_data:
-                                *const c_uchar,
+                                class_data: *const c_uchar,
                                 new_class_data_len: *mut jint,
-                                new_class_data:
-                                *mut *mut c_uchar)
+                                new_class_data: *mut *mut c_uchar)
                                 -> ()>;
-pub type jvmtiEventClassLoad =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread, klass: jclass)
-                                -> ()>;
-pub type jvmtiEventClassPrepare =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread, klass: jclass)
-                                -> ()>;
+pub type jvmtiEventClassLoad = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                           jni_env: *mut JNIEnv,
+                                                           thread: jthread,
+                                                           klass: jclass)
+                                                           -> ()>;
+pub type jvmtiEventClassPrepare = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                              jni_env: *mut JNIEnv,
+                                                              thread: jthread,
+                                                              klass: jclass)
+                                                              -> ()>;
 pub type jvmtiEventCompiledMethodLoad =
     Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
                                 method: jmethodID,
                                 code_size: jint,
-                                code_addr:
-                                *const c_void,
+                                code_addr: *const c_void,
                                 map_length: jint,
-                                map:
-                                *const jvmtiAddrLocationMap,
-                                compile_info:
-                                *const c_void)
+                                map: *const jvmtiAddrLocationMap,
+                                compile_info: *const c_void)
                                 -> ()>;
-pub type jvmtiEventCompiledMethodUnload =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                method: jmethodID,
-                                code_addr:
-                                *const c_void)
-                                -> ()>;
-pub type jvmtiEventDataDumpRequest =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv)
-                                -> ()>;
-pub type jvmtiEventDynamicCodeGenerated =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                name: *const c_char,
-                                address: *const c_void,
-                                length: jint) -> ()>;
-pub type jvmtiEventException =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread,
-                                method: jmethodID,
-                                location: jlocation,
-                                exception: jobject,
-                                catch_method: jmethodID,
-                                catch_location: jlocation)
-                                -> ()>;
-pub type jvmtiEventExceptionCatch =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread,
-                                method: jmethodID,
-                                location: jlocation,
-                                exception: jobject) -> ()>;
-pub type jvmtiEventFieldAccess =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread,
-                                method: jmethodID,
-                                location: jlocation,
-                                field_klass: jclass,
-                                object: jobject,
-                                field: jfieldID) -> ()>;
-pub type jvmtiEventFieldModification =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread,
-                                method: jmethodID,
-                                location: jlocation,
-                                field_klass: jclass,
-                                object: jobject,
-                                field: jfieldID,
-                                signature_type: c_char,
-                                new_value: jvalue) -> ()>;
-pub type jvmtiEventFramePop =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread,
-                                method: jmethodID,
-                                was_popped_by_exception:
-                                jboolean) -> ()>;
-pub type jvmtiEventGarbageCollectionFinish =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv)
-                                -> ()>;
-pub type jvmtiEventGarbageCollectionStart =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv)
-                                -> ()>;
-pub type jvmtiEventMethodEntry =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread,
-                                method: jmethodID) -> ()>;
-pub type jvmtiEventMethodExit =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread,
-                                method: jmethodID,
-                                was_popped_by_exception:
-                                jboolean,
-                                return_value: jvalue) -> ()>;
-pub type jvmtiEventMonitorContendedEnter =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread,
-                                object: jobject) -> ()>;
-pub type jvmtiEventMonitorContendedEntered =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread,
-                                object: jobject) -> ()>;
-pub type jvmtiEventMonitorWait =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread,
-                                object: jobject,
-                                timeout: jlong) -> ()>;
-pub type jvmtiEventMonitorWaited =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread,
-                                object: jobject,
-                                timed_out: jboolean) -> ()>;
+pub type jvmtiEventCompiledMethodUnload = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                                      method: jmethodID,
+                                                                      code_addr: *const c_void)
+                                                                      -> ()>;
+pub type jvmtiEventDataDumpRequest = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv) -> ()>;
+pub type jvmtiEventDynamicCodeGenerated = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                                      name: *const c_char,
+                                                                      address: *const c_void,
+                                                                      length: jint)
+                                                                      -> ()>;
+pub type jvmtiEventException = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                           jni_env: *mut JNIEnv,
+                                                           thread: jthread,
+                                                           method: jmethodID,
+                                                           location: jlocation,
+                                                           exception: jobject,
+                                                           catch_method: jmethodID,
+                                                           catch_location: jlocation)
+                                                           -> ()>;
+pub type jvmtiEventExceptionCatch = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                                jni_env: *mut JNIEnv,
+                                                                thread: jthread,
+                                                                method: jmethodID,
+                                                                location: jlocation,
+                                                                exception: jobject)
+                                                                -> ()>;
+pub type jvmtiEventFieldAccess = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                             jni_env: *mut JNIEnv,
+                                                             thread: jthread,
+                                                             method: jmethodID,
+                                                             location: jlocation,
+                                                             field_klass: jclass,
+                                                             object: jobject,
+                                                             field: jfieldID)
+                                                             -> ()>;
+pub type jvmtiEventFieldModification = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                                   jni_env: *mut JNIEnv,
+                                                                   thread: jthread,
+                                                                   method: jmethodID,
+                                                                   location: jlocation,
+                                                                   field_klass: jclass,
+                                                                   object: jobject,
+                                                                   field: jfieldID,
+                                                                   signature_type: c_char,
+                                                                   new_value: jvalue)
+                                                                   -> ()>;
+pub type jvmtiEventFramePop = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                          jni_env: *mut JNIEnv,
+                                                          thread: jthread,
+                                                          method: jmethodID,
+                                                          was_popped_by_exception: jboolean)
+                                                          -> ()>;
+pub type jvmtiEventGarbageCollectionFinish = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv)
+                                                                         -> ()>;
+pub type jvmtiEventGarbageCollectionStart = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv)
+                                                                        -> ()>;
+pub type jvmtiEventMethodEntry = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                             jni_env: *mut JNIEnv,
+                                                             thread: jthread,
+                                                             method: jmethodID)
+                                                             -> ()>;
+pub type jvmtiEventMethodExit = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                            jni_env: *mut JNIEnv,
+                                                            thread: jthread,
+                                                            method: jmethodID,
+                                                            was_popped_by_exception: jboolean,
+                                                            return_value: jvalue)
+                                                            -> ()>;
+pub type jvmtiEventMonitorContendedEnter = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                                       jni_env: *mut JNIEnv,
+                                                                       thread: jthread,
+                                                                       object: jobject)
+                                                                       -> ()>;
+pub type jvmtiEventMonitorContendedEntered = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                                         jni_env: *mut JNIEnv,
+                                                                         thread: jthread,
+                                                                         object: jobject)
+                                                                         -> ()>;
+pub type jvmtiEventMonitorWait = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                             jni_env: *mut JNIEnv,
+                                                             thread: jthread,
+                                                             object: jobject,
+                                                             timeout: jlong)
+                                                             -> ()>;
+pub type jvmtiEventMonitorWaited = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                               jni_env: *mut JNIEnv,
+                                                               thread: jthread,
+                                                               object: jobject,
+                                                               timed_out: jboolean)
+                                                               -> ()>;
 pub type jvmtiEventNativeMethodBind =
     Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
                                 jni_env: *mut JNIEnv,
                                 thread: jthread,
                                 method: jmethodID,
                                 address: *mut c_void,
-                                new_address_ptr:
-                                *mut *mut c_void)
+                                new_address_ptr: *mut *mut c_void)
                                 -> ()>;
-pub type jvmtiEventObjectFree =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                tag: jlong) -> ()>;
-pub type jvmtiEventResourceExhausted =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                flags: jint,
-                                reserved:
-                                *const c_void,
-                                description:
-                                *const c_char)
-                                -> ()>;
-pub type jvmtiEventSingleStep =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread,
-                                method: jmethodID,
-                                location: jlocation) -> ()>;
-pub type jvmtiEventThreadEnd =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread) -> ()>;
-pub type jvmtiEventThreadStart =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread) -> ()>;
-pub type jvmtiEventVMDeath =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv) -> ()>;
-pub type jvmtiEventVMInit =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread) -> ()>;
-pub type jvmtiEventVMObjectAlloc =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv,
-                                thread: jthread,
-                                object: jobject,
-                                object_klass: jclass,
-                                size: jlong) -> ()>;
-pub type jvmtiEventVMStart =
-    Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
-                                jni_env: *mut JNIEnv) -> ()>;
+pub type jvmtiEventObjectFree = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv, tag: jlong)
+                                                            -> ()>;
+pub type jvmtiEventResourceExhausted = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                                   jni_env: *mut JNIEnv,
+                                                                   flags: jint,
+                                                                   reserved: *const c_void,
+                                                                   description: *const c_char)
+                                                                   -> ()>;
+pub type jvmtiEventSingleStep = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                            jni_env: *mut JNIEnv,
+                                                            thread: jthread,
+                                                            method: jmethodID,
+                                                            location: jlocation)
+                                                            -> ()>;
+pub type jvmtiEventThreadEnd = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                           jni_env: *mut JNIEnv,
+                                                           thread: jthread)
+                                                           -> ()>;
+pub type jvmtiEventThreadStart = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                             jni_env: *mut JNIEnv,
+                                                             thread: jthread)
+                                                             -> ()>;
+pub type jvmtiEventVMDeath = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                         jni_env: *mut JNIEnv)
+                                                         -> ()>;
+pub type jvmtiEventVMInit = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                        jni_env: *mut JNIEnv,
+                                                        thread: jthread)
+                                                        -> ()>;
+pub type jvmtiEventVMObjectAlloc = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                               jni_env: *mut JNIEnv,
+                                                               thread: jthread,
+                                                               object: jobject,
+                                                               object_klass: jclass,
+                                                               size: jlong)
+                                                               -> ()>;
+pub type jvmtiEventVMStart = Option<unsafe extern "C" fn(jvmti_env: *mut jvmtiEnv,
+                                                         jni_env: *mut JNIEnv)
+                                                         -> ()>;
 
 #[repr(C)]
 #[derive(Copy)]
@@ -1024,10 +1141,14 @@ pub struct jvmtiEventCallbacks {
     pub VMObjectAlloc: jvmtiEventVMObjectAlloc,
 }
 impl Clone for jvmtiEventCallbacks {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiEventCallbacks {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -1190,10 +1311,14 @@ pub struct jvmtiInterface_1 {
     pub GetLocalInstance: Option<unsafe extern "C" fn(env: *mut jvmtiEnv, thread: jthread, depth: jint, value_ptr: *mut jobject) -> jvmtiError>,
 }
 impl Clone for jvmtiInterface_1 {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for jvmtiInterface_1 {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }
 
 #[repr(C)]
@@ -1202,8 +1327,12 @@ pub struct _jvmtiEnv {
     pub functions: *const jvmtiInterface_1,
 }
 impl Clone for _jvmtiEnv {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Default for _jvmtiEnv {
-    fn default() -> Self { unsafe { mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { mem::zeroed() }
+    }
 }

@@ -2,12 +2,17 @@
 name = "stack-param"
 version = "0.1.0"
 authors = ["Chad Retz <chad.retz@gmail.com>"]
+build = "build-helper-class.rs"
 
 [lib]
 crate-type = ["dylib"]
 
 [dependencies]
-libc = "0.2"
 jni-sys = "0.2"
+log = "0.3"
+env_logger = "0.3"
+#libc = "0.2"
+
+[build-dependencies]
 log = "0.3"
 env_logger = "0.3"

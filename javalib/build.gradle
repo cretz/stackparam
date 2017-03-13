@@ -1,17 +1,46 @@
-group 'stack-param'
-version '1.0-SNAPSHOT'
+allprojects {
+    group 'stack-param'
+    version '1.0-SNAPSHOT'
+    
+    apply plugin: 'java'
 
-apply plugin: 'java'
+    repositories {
+        mavenCentral()
+    }
 
-repositories {
-    mavenCentral()
+    dependencies {
+        testCompile "junit:junit:4.12"
+        testCompile "com.google.guava:guava:21.0"
+    }
 }
 
-dependencies {
-    testCompile "junit:junit:4.12"
+project(":ow2-manip") {
+
+    compileJava {
+        options.fork = true
+        options.forkOptions.executable = 'javac'
+        options.compilerArgs << '-XDignore.symbol.file'
+    }
+    compileTestJava {
+        options.fork = true
+        options.forkOptions.executable = 'javac'
+        options.compilerArgs << '-XDignore.symbol.file'
+    }
 }
 
-test {
-    // testLogging.quiet.showStandardStreams = true
-    jvmArgs '-agentpath:../target/debug/' + System.mapLibraryName('stack_param')
+project(":agent-tests") {
+    test {
+        testLogging.quiet.showStandardStreams = true
+        jvmArgs += '-agentpath:../../target/debug/' + System.mapLibraryName('stack_param')
+//        jvmArgs += '-XX:+TraceClassLoading'
+//        jvmArgs += '-XX:+TraceClassUnloading'
+        jvmArgs += ["-XX:+AggressiveOpts", "-XX:+UnlockDiagnosticVMOptions", "-XX:+UnlockExperimentalVMOptions"]
+//        jvmArgs += "-XX:+PrintFlagsFinal"
+//        jvmArgs += '-Xprof'
+        jvmArgs += '-XX:TraceJVMTI=all'
+//        jvmArgs += '-Xcheck:jni'
+//        jvmArgs += '-verbose:jni'
+//        jvmArgs += ["-XX:+LogVMOutput", "-XX:+LogEvents", "-XX:LogEventsBufferEntries=50", "-XX:+LogCommercialFeatures"]
+
+    }
 }
