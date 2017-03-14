@@ -21,6 +21,7 @@ class Ow2AsmManip {
     }
 
     public static byte[] addThrowableMethod(byte[] throwableClassBytes) {
+        System.out.println("JVM SIDE, in byte size: " + throwableClassBytes.length);
         ClassNode node = new ClassNode();
         new ClassReader(throwableClassBytes).accept(node, 0);
 
@@ -45,6 +46,8 @@ class Ow2AsmManip {
 
         ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES + ClassWriter.COMPUTE_MAXS);
         node.accept(writer);
-        return writer.toByteArray();
+        byte[] ret = writer.toByteArray();
+        System.out.println("JVM SIDE, out byte size: " + ret.length);
+        return ret;
     }
 }

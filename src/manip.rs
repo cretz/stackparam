@@ -2,10 +2,11 @@ extern crate jni_sys;
 extern crate env_logger;
 
 use util;
-use jni_sys::{JNIEnv, jbyte, jclass};
+use jni_sys::{JNIEnv, jbyte, jclass, jsize};
 use jvmti_sys::jvmtiEnv;
 use std::ffi::CString;
 use std::ptr;
+use std::borrow::Cow;
 
 pub trait Manip {
     fn init(&self, jvmti_env: *mut jvmtiEnv, jni_env: *mut JNIEnv) -> Result<(), String>;
@@ -13,7 +14,7 @@ pub trait Manip {
                             jvmti_env: *mut jvmtiEnv,
                             jni_env: *mut JNIEnv,
                             bytes: &[u8])
-                            -> Result<&[u8], String>;
+                            -> Result<Cow<[u8]>, String>;
 }
 
 pub fn default_manip() -> Box<Manip> {
@@ -55,14 +56,37 @@ impl Manip for Ow2Asm {
                             jvmti_env: *mut jvmtiEnv,
                             jni_env: *mut JNIEnv,
                             bytes: &[u8])
-                            -> Result<&[u8], String> {
+                            -> Result<Cow<[u8]>, String> {
         unsafe {
             let class = try!(get_manip_class(jni_env));
             let method = try!(util::find_method(jvmti_env, class, "addThrowableMethod"));
-            // TODO:
-            // let new_bytes =
-            debug!("TODO: handle method {:?} and bytes of size {}", method, bytes.len());
-            return Result::Ok("".as_bytes());
+            // Not worth a direct byte buffer, we copy in and copy on the way back, who cares
+            // this is just happening on init.
+            let byte_array = (**jni_env).NewByteArray.unwrap()(jni_env, bytes.len() as jsize);
+            if byte_array.is_null() {
+                return Result::Err("Unable to create new byte array".to_string());
+            }
+            (**jni_env).SetByteArrayRegion.unwrap()(jni_env,
+                                                    byte_array,
+                                                    0,
+                                                    bytes.len() as jsize,
+                                                    bytes.as_ptr() as *const jbyte);
+            try!(util::result_or_jni_ex((), jni_env));
+            let new_bytes = try!(util::result_or_jni_ex(
+                (**jni_env).CallStaticObjectMethod.unwrap()(jni_env, class, method, byte_array), jni_env));
+            let new_bytes_len = (**jni_env).GetArrayLength.unwrap()(jni_env, new_bytes);
+            let mut new_bytes_vec: Vec<u8> = Vec::with_capacity(new_bytes_len as usize);
+            (**jni_env).GetByteArrayRegion.unwrap()(jni_env,
+                                                    new_bytes,
+                                                    0,
+                                                    new_bytes_len,
+                                                    new_bytes_vec.as_mut_ptr() as *mut jbyte);
+            try!(util::result_or_jni_ex((), jni_env));
+            let ret_bytes_vec = Vec::from_raw_parts(new_bytes_vec.as_mut_ptr(),
+                                                    new_bytes_len as usize,
+                                                    new_bytes_len as usize);
+            let ret_bytes: Cow<[u8]> = Cow::from(ret_bytes_vec);
+            return Result::Ok(ret_bytes);
         }
     }
 }
