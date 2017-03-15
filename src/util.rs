@@ -25,6 +25,7 @@ pub unsafe fn unit_or_jvmti_err(res: jvmtiError) -> Result<(), String> {
     return Result::Ok(());
 }
 
+#[allow(dead_code)]
 pub unsafe fn find_method(jvmti_env: *mut jvmtiEnv,
                           class: jclass,
                           name: &str)

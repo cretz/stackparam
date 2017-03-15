@@ -6,7 +6,7 @@ use std::process::Command;
 
 fn main() {
     // Only build the class helper if it's not already there
-    //    if !Path::new("javalib/ow2-manip/build/classes/main/stackparam/Ow2AsmManip.class").exists() {
+    //    if !Path::new("javalib/native/build/classes/main/stackparam/StackParamNative.class").exists() {
     let javalib_path = std::env::current_dir().expect("No current dir").join("javalib");
     let mut gradle_path = javalib_path.join("gradlew");
     if cfg!(target_os = "windows") {
@@ -18,7 +18,7 @@ fn main() {
     let output = Command::new(gradle_path)
         .current_dir(javalib_path)
         .arg("--no-daemon")
-        .arg(":ow2-manip:classes")
+        .arg(":native:classes")
         .output()
         .expect("Couldn't start gradle");
 

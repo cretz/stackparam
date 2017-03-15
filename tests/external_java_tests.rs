@@ -5,7 +5,7 @@ extern crate env_logger;
 use std::process::Command;
 
 #[test]
-fn test_simple() {
+fn java_tests() {
     let _ = env_logger::init();
 
     // Run the gradle test that references this agent

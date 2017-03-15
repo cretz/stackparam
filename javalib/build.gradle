@@ -14,7 +14,7 @@ allprojects {
     }
 }
 
-project(":ow2-manip") {
+project(":native") {
 
     compileJava {
         options.fork = true
@@ -34,13 +34,13 @@ project(":agent-tests") {
         jvmArgs += '-agentpath:../../target/debug/' + System.mapLibraryName('stack_param')
 //        jvmArgs += '-XX:+TraceClassLoading'
 //        jvmArgs += '-XX:+TraceClassUnloading'
-        jvmArgs += ["-XX:+AggressiveOpts", "-XX:+UnlockDiagnosticVMOptions", "-XX:+UnlockExperimentalVMOptions"]
+//        jvmArgs += ["-XX:+AggressiveOpts", "-XX:+UnlockDiagnosticVMOptions", "-XX:+UnlockExperimentalVMOptions"]
 //        jvmArgs += "-XX:+PrintFlagsFinal"
 //        jvmArgs += '-Xprof'
-        jvmArgs += '-XX:TraceJVMTI=all'
+//        jvmArgs += '-XX:TraceJVMTI=all'
 //        jvmArgs += '-Xcheck:jni'
 //        jvmArgs += '-verbose:jni'
 //        jvmArgs += ["-XX:+LogVMOutput", "-XX:+LogEvents", "-XX:LogEventsBufferEntries=50", "-XX:+LogCommercialFeatures"]
-
+//        jvmArgs += '-XX:+CreateMinidumpOnCrash'
     }
 }

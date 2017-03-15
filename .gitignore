@@ -9,3 +9,4 @@ target
 /javalib/.gradle
 /javalib/agent-tests/build
 /javalib/ow2-manip/build
+/javalib/native/build
