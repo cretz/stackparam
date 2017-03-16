@@ -16,6 +16,7 @@ use bytecode::io::writer::ClassWriter;
 
 pub trait Manip {
     fn init(&self, jvmti_env: *mut jvmtiEnv, jni_env: *mut JNIEnv) -> Result<(), String>;
+
     fn manip_throwable_class(&self,
                             jvmti_env: *mut jvmtiEnv,
                             jni_env: *mut JNIEnv,
@@ -27,7 +28,7 @@ pub trait Manip {
 }
 
 pub fn default_manip() -> Box<Manip> {
-    return Box::new(Ow2Asm {});
+    return Box::new(StandardManip {});
 }
 
 #[allow(dead_code)]
@@ -152,9 +153,9 @@ fn method_ref_const(class_file: &mut Classfile, class_name: &str, method_name: &
     return ret;
 }
 
-struct Ow2Asm;
+struct StandardManip;
 
-impl Manip for Ow2Asm {
+impl Manip for StandardManip {
     fn init(&self, _jvmti_env: *mut jvmtiEnv, jni_env: *mut JNIEnv) -> Result<(), String> {
         unsafe {
             return define_manip_class(jni_env);

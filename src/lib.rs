@@ -7,6 +7,7 @@ mod jvmti_sys;
 mod manip;
 mod util;
 pub mod bytecode;
+pub mod native;
 
 use jni_sys::{JavaVM, jint, jclass, jobject, JNIEnv, JNI_OK};
 use jvmti_sys::{jvmtiEnv, JVMTI_VERSION, jvmtiEventCallbacks, jvmtiCapabilities, jvmtiEventMode, jvmtiEvent, jthread};
@@ -69,8 +70,8 @@ unsafe fn add_capabilities(jvmti_env: *mut jvmtiEnv) -> Result<(), String> {
     let caps = jvmtiCapabilities {
         // can_redefine_any_class | can_generate_all_class_hook_events
         //_bindgen_bitfield_1_: 0x00200000 | 0x04000000,
-        // can_generate_all_class_hook_events
-        _bindgen_bitfield_1_: 0x04000000,
+        // can_access_local_variables | can_generate_all_class_hook_events
+        _bindgen_bitfield_1_: 0x00004000 | 0x04000000,
         // can_retransform_classes | can_retransform_any_class
         //_bindgen_bitfield_2_: 0x00000020 | 0x00000040,
         ..Default::default()
@@ -162,6 +163,8 @@ unsafe extern "C" fn vm_init(jvmti_env: *mut jvmtiEnv,
                              _thread: jthread)
                              -> () {
     debug!("Agent initializing");
+    // Set the global jvmti env for later jni use
+    native::JVMTI_ENV = jvmti_env;
     match manip_init(jvmti_env, jni_env) {
         Ok(()) => debug!("Agent initialized"),
         Err(err_str) => error!("Unable to initialize agent: {}", err_str),

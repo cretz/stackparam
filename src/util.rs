@@ -18,6 +18,13 @@ pub unsafe fn result_or_jni_ex<T>(res: T, jni_env: *mut JNIEnv) -> Result<T, Str
     return Result::Ok(res);
 }
 
+pub unsafe fn result_or_jvmti_err<T>(res: T, err_maybe: jvmtiError) -> Result<T, String> {
+    if err_maybe as i32 != 0 {
+        return Result::Err(format!("Unexpected jvmti error: {:?}", err_maybe));
+    }
+    return Result::Ok(res);
+}
+
 pub unsafe fn unit_or_jvmti_err(res: jvmtiError) -> Result<(), String> {
     if res as i32 != 0 {
         return Result::Err(format!("Unexpected jvmti error: {:?}", res));
