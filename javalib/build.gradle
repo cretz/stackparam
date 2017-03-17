@@ -9,12 +9,11 @@ allprojects {
     }
 
     dependencies {
-        testCompile "junit:junit:4.12"
-        testCompile "com.google.guava:guava:21.0"
+        testCompile 'junit:junit:4.12'
     }
 }
 
-project(":native") {
+project(':native') {
 
     compileJava {
         options.fork = true
@@ -28,19 +27,20 @@ project(":native") {
     }
 }
 
-project(":agent-tests") {
+project(':agent-tests') {
     test {
-        testLogging.quiet.showStandardStreams = true
+        testLogging.showExceptions = true
+        testLogging.exceptionFormat = 'full'
         jvmArgs += '-agentpath:../../target/debug/' + System.mapLibraryName('stack_param')
 //        jvmArgs += '-XX:+TraceClassLoading'
 //        jvmArgs += '-XX:+TraceClassUnloading'
-//        jvmArgs += ["-XX:+AggressiveOpts", "-XX:+UnlockDiagnosticVMOptions", "-XX:+UnlockExperimentalVMOptions"]
-//        jvmArgs += "-XX:+PrintFlagsFinal"
+//        jvmArgs += ['-XX:+AggressiveOpts', '-XX:+UnlockDiagnosticVMOptions', '-XX:+UnlockExperimentalVMOptions']
+//        jvmArgs += '-XX:+PrintFlagsFinal'
 //        jvmArgs += '-Xprof'
 //        jvmArgs += '-XX:TraceJVMTI=all'
 //        jvmArgs += '-Xcheck:jni'
 //        jvmArgs += '-verbose:jni'
-//        jvmArgs += ["-XX:+LogVMOutput", "-XX:+LogEvents", "-XX:LogEventsBufferEntries=50", "-XX:+LogCommercialFeatures"]
+//        jvmArgs += ['-XX:+LogVMOutput', '-XX:+LogEvents', '-XX:LogEventsBufferEntries=50', '-XX:+LogCommercialFeatures']
 //        jvmArgs += '-XX:+CreateMinidumpOnCrash'
     }
 }

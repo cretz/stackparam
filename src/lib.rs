@@ -164,7 +164,7 @@ unsafe extern "C" fn vm_init(jvmti_env: *mut jvmtiEnv,
                              -> () {
     debug!("Agent initializing");
     // Set the global jvmti env for later jni use
-    native::JVMTI_ENV = jvmti_env;
+    native::init(jvmti_env);
     match manip_init(jvmti_env, jni_env) {
         Ok(()) => debug!("Agent initialized"),
         Err(err_str) => error!("Unable to initialize agent: {}", err_str),

@@ -19,7 +19,6 @@ fn java_tests() {
     let output = Command::new(gradle_path)
         .current_dir(javalib_path)
         .arg("--no-daemon")
-        .arg("-q")
         .arg(":agent-tests:cleanTest")
         .arg(":agent-tests:test")
         .output()
@@ -30,5 +29,4 @@ fn java_tests() {
     info!("stderr: {}", String::from_utf8_lossy(&output.stderr));
 
     assert!(output.status.success());
-    //    assert_eq!("Loaded!\nUnloaded!\n", stdout);
 }

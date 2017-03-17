@@ -7,16 +7,26 @@ import java.util.Arrays;
 
 public class StackParamNativeTest {
 
+    private static final Object CONST_OBJ = new Object();
+
     @Test
     public void testLoadStackParamsSimple() {
         Object[][] stackParams = instanceWithStringArg("Some string");
 
-        Object[] expectedLongMethodArgs = {
-            "longArg",
-            "J",
-            Integer.MAX_VALUE + 5L
+        Object[] expectedOtherMethodArgs = {
+            "boolArg", "Z", true,
+            "byteArg", "B", (byte) 100,
+            "charArg", "C", (char) 101,
+            "shortArg", "S", (short) 102,
+            "intArg", "I", 103,
+            "longArg", "J", 104L,
+            "floatArg", "F", 105.6f,
+            "doubleArg", "D", 106.7,
+            "nullArg", "Ljava/lang/Object;", null,
+            "objectExactArg", "Ljava/lang/Object;", CONST_OBJ,
+            "stringVarArgs", "[Ljava/lang/String;", new String[] { "foo", "bar", "baz" }
         };
-        assertArrayEquals(expectedLongMethodArgs, stackParams[0]);
+        assertArrayEquals(expectedOtherMethodArgs, stackParams[0]);
 
         Object[] expectedStringMethodArgs = {
             "this",
@@ -30,10 +40,16 @@ public class StackParamNativeTest {
     }
 
     private Object[][] instanceWithStringArg(String stringArg) {
-        return withLongArg(Integer.MAX_VALUE + 5L);
+        return withOtherArgs(true, (byte) 100, (char) 101,
+                (short) 102, 103, 104L,
+                105.6f, 106.7, null,
+                CONST_OBJ, "foo", "bar", "baz");
     }
 
-    private static Object[][] withLongArg(long longArg) {
+    private static Object[][] withOtherArgs(boolean boolArg, byte byteArg, char charArg,
+                                            short shortArg, int intArg, long longArg,
+                                            float floatArg, double doubleArg, Object nullArg,
+                                            Object objectExactArg, String... stringVarArgs) {
         Object[][] stackParams;
         try {
             stackParams = (Object[][]) Class.forName("stackparam.StackParamNative").
