@@ -1,5 +1,5 @@
 allprojects {
-    group 'stack-param'
+    group 'stackparam'
     version '1.0-SNAPSHOT'
     
     apply plugin: 'java'
@@ -14,24 +14,26 @@ allprojects {
 }
 
 project(':native') {
+    // With enough requests, I'll enable this to go backwards for older JVMs
+    // sourceCompatibility = 1.6
+    // targetCompatibility = 1.6
 
     compileJava {
         options.fork = true
         options.forkOptions.executable = 'javac'
-        options.compilerArgs << '-XDignore.symbol.file'
     }
     compileTestJava {
         options.fork = true
         options.forkOptions.executable = 'javac'
-        options.compilerArgs << '-XDignore.symbol.file'
     }
 }
 
 project(':agent-tests') {
     test {
+        testLogging.showStandardStreams = true
         testLogging.showExceptions = true
         testLogging.exceptionFormat = 'full'
-        jvmArgs += '-agentpath:../../target/debug/' + System.mapLibraryName('stack_param')
+        jvmArgs += '-agentpath:../../target/debug/' + System.mapLibraryName('stackparam')
 //        jvmArgs += '-XX:+TraceClassLoading'
 //        jvmArgs += '-XX:+TraceClassUnloading'
 //        jvmArgs += ['-XX:+AggressiveOpts', '-XX:+UnlockDiagnosticVMOptions', '-XX:+UnlockExperimentalVMOptions']

@@ -5,8 +5,6 @@ extern crate env_logger;
 use std::process::Command;
 
 fn main() {
-    // Only build the class helper if it's not already there
-    //    if !Path::new("javalib/native/build/classes/main/stackparam/StackParamNative.class").exists() {
     let javalib_path = std::env::current_dir().expect("No current dir").join("javalib");
     let mut gradle_path = javalib_path.join("gradlew");
     if cfg!(target_os = "windows") {
@@ -25,5 +23,4 @@ fn main() {
     println!("Gradle stdout: {}", String::from_utf8_lossy(&output.stdout));
     println!("Gradle stderr: {}", String::from_utf8_lossy(&output.stderr));
     assert!(output.status.success());
-    //    }
 }

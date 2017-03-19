@@ -1,5 +1,5 @@
 [package]
-name = "stack-param"
+name = "stackparam"
 version = "0.1.0"
 authors = ["Chad Retz <chad.retz@gmail.com>"]
 build = "build-helper-class.rs"

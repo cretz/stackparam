@@ -3,10 +3,10 @@ target
 /.idea
 /target
 /Cargo.lock
-/stack-param.iml
 /javalib/.idea
 /javalib/build
 /javalib/.gradle
 /javalib/agent-tests/build
 /javalib/ow2-manip/build
 /javalib/native/build
+/stackparam.iml

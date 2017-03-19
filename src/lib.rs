@@ -25,7 +25,7 @@ pub unsafe extern "C" fn Agent_OnLoad(vm: *mut JavaVM,
     debug!("Agent loading");
     match run(vm, options) {
         Ok(()) => debug!("Agent loaded"),
-        Err(errStr) => error!("Agent unable to load: {}", errStr),
+        Err(errStr) => info!("Agent unable to load: {}", errStr),
     }
     return 0;
 }
@@ -41,13 +41,13 @@ unsafe fn run(vm: *mut JavaVM, options: *mut c_char) -> Result<(), String> {
     init(options);
 
     // Get the environment
-    let jvmti_env = try!(get_env(vm));
+    let jvmti_env = get_env(vm)?;
 
     // Add needed capabilities
-    try!(add_capabilities(jvmti_env));
+    add_capabilities(jvmti_env)?;
 
     // Set the callbacks
-    try!(set_event_callbacks(jvmti_env));
+    set_event_callbacks(jvmti_env)?;
 
     // Enable the notifications
     return enable_notifications(jvmti_env);
@@ -93,7 +93,8 @@ unsafe fn set_event_callbacks(jvmti_env: *mut jvmtiEnv) -> Result<(), String> {
 }
 
 unsafe fn enable_notifications(jvmti_env: *mut jvmtiEnv) -> Result<(), String> {
-    try!(enable_notification(jvmti_env, jvmtiEvent::JVMTI_EVENT_VM_INIT));
+    enable_notification(jvmti_env, jvmtiEvent::JVMTI_EVENT_VM_INIT)?;
+    enable_notification(jvmti_env, jvmtiEvent::JVMTI_EVENT_VM_START)?;
     return enable_notification(jvmti_env, jvmtiEvent::JVMTI_EVENT_CLASS_FILE_LOAD_HOOK);
 }
 
@@ -103,12 +104,6 @@ unsafe fn enable_notification(jvmti_env: *mut jvmtiEnv, event: jvmtiEvent) -> Re
                                                                    event,
                                                                    ptr::null_mut());
     return util::unit_or_jvmti_err(mode_res);
-}
-
-unsafe fn manip_init(jvmti_env: *mut jvmtiEnv,
-                                     jni_env: *mut JNIEnv)
-                                     -> Result<(), String> {
-    return manip::default_manip().init(jvmti_env, jni_env);
 }
 
 unsafe fn transform_class_file(jvmti_env: *mut jvmtiEnv,
@@ -125,12 +120,12 @@ unsafe fn transform_class_file(jvmti_env: *mut jvmtiEnv,
         return Result::Ok(());
     }
     return match CStr::from_ptr(name).to_str() {
-        Ok("java/lang/Throwable") => {
-            let manip_inst = manip::default_manip();
-            try!(manip_inst.manip_throwable_class(jvmti_env, jni_env, class_data_len, class_data, new_class_data_len, new_class_data));
-            return Result::Ok(());
-        }
-        _ => Result::Ok(())
+        Ok("java/lang/Throwable") =>
+            manip::manip_throwable_class(jvmti_env, jni_env, class_data_len, class_data, new_class_data_len, new_class_data),
+        Ok("java/lang/StackTraceElement") =>
+            manip::manip_element_class(jvmti_env, jni_env, class_data_len, class_data, new_class_data_len, new_class_data),
+        _ =>
+            Result::Ok(())
     }
 }
 
@@ -154,19 +149,16 @@ unsafe extern "C" fn class_file_load_hook(jvmti_env: *mut jvmtiEnv,
                                new_class_data_len,
                                new_class_data) {
         Ok(()) => (),
-        Err(err_str) => error!("Failed to hook class: {}", err_str)
+        Err(err_str) => info!("Failed to hook class: {}", err_str)
     }
 }
 
-unsafe extern "C" fn vm_init(jvmti_env: *mut jvmtiEnv,
-                             jni_env: *mut JNIEnv,
-                             _thread: jthread)
-                             -> () {
-    debug!("Agent initializing");
+unsafe extern "C" fn vm_init(jvmti_env: *mut jvmtiEnv, jni_env: *mut JNIEnv, _thread: jthread) -> () {
+    info!("Agent initializing");
     // Set the global jvmti env for later jni use
     native::init(jvmti_env);
-    match manip_init(jvmti_env, jni_env) {
-        Ok(()) => debug!("Agent initialized"),
-        Err(err_str) => error!("Unable to initialize agent: {}", err_str),
+    match manip::define_manip_class(jni_env) {
+        Ok(()) => info!("Agent initialized"),
+        Err(err_str) => info!("Unable to initialize agent: {}", err_str),
     }
 }

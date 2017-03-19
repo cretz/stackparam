@@ -1,4 +1,4 @@
-rootProject.name = 'stack-param'
+rootProject.name = 'stackparam'
 
 include 'native'
 include 'agent-tests'

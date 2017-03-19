@@ -1,7 +1,7 @@
 extern crate jni_sys;
 
-use log::LogLevel::Debug;
-use jni_sys::{JNIEnv, jclass, jint, jlong, jfloat, jdouble, jobject, jmethodID, jstring, jobjectArray, jsize};
+use log::LogLevel::{Debug, Trace};
+use jni_sys::{JNIEnv, jclass, jint, jlong, jfloat, jdouble, jobject, jmethodID, jfieldID, jstring, jobjectArray, jsize};
 use jvmti_sys::{jvmtiEnv, jthread, jvmtiFrameInfo, jvmtiLocalVariableEntry, jvmtiError};
 use std::ptr;
 use util;
@@ -11,10 +11,334 @@ use std::ffi::{CStr, CString};
 use std::sync::{Once, ONCE_INIT};
 use std::mem;
 
+const DEFAULT_MAX_STACK_DEPTH: jint = 3000;
+
+// Not set until after init on purpose
 static mut JVMTI_ENV: *mut jvmtiEnv = 0 as *mut jvmtiEnv;
 
 pub unsafe fn init(jvmti_env: *mut jvmtiEnv) {
     JVMTI_ENV = jvmti_env;
+}
+
+#[no_mangle]
+#[allow(non_snake_case)]
+pub unsafe extern "C" fn Java_java_lang_Throwable_getOurStackTrace(jni_env: *mut JNIEnv,
+                                                                   this: jobject) -> jobject {
+    if log_enabled!(Debug) {
+        debug!("Asking for trace from {}", class_sig_from_obj(jni_env, this).unwrap_or("<unknown>".to_string()));
+    }
+    return match populate_trace_elements(jni_env, this) {
+        Result::Err(err_str) => {
+            debug!("Stack elem populate err: {}", err_str);
+            ptr::null_mut()
+        },
+        Result::Ok(ret) => ret
+    };
+}
+
+#[no_mangle]
+#[allow(non_snake_case)]
+pub unsafe extern "C" fn Java_java_lang_StackTraceElement_toString(jni_env: *mut JNIEnv, this: jobject) -> jobject {
+    return match append_param_to_string(jni_env, this) {
+        Result::Err(err_str) => {
+            debug!("Stack elem toString err: {}", err_str);
+            ptr::null_mut()
+        },
+        Result::Ok(ret) => ret
+    };
+}
+
+#[no_mangle]
+#[allow(non_snake_case)]
+pub unsafe extern "C" fn Java_java_lang_Throwable_stackParamFillInStackTrace(jni_env: *mut JNIEnv,
+                                                                             this: jobject,
+                                                                             thread: jthread) -> jobject {
+    // This is needed in case of failure, we need to at least set the field to something
+    unsafe fn set_param_to_null_ignore_err(jni_env: *mut JNIEnv, this: jobject) {
+        let field = get_stack_params_field(jni_env).unwrap_or(ptr::null_mut());
+        if !field.is_null() {
+            (**jni_env).SetObjectField.unwrap()(jni_env, this, field, ptr::null_mut());
+            let _ = util::result_or_jni_ex((), jni_env);
+        }
+    }
+
+    // Do nothing before vm init (i.e. before our static is set)
+    if JVMTI_ENV.is_null() {
+        set_param_to_null_ignore_err(jni_env, this);
+        return this;
+    }
+
+    // TODO: there are a ton of exception fills happening on startup that are slowing things down and
+    // are not relayed to the user. We should either skip filling those, or find a way to make the fill
+    // cheaper (bunch of string allocs)
+    if log_enabled!(Debug) {
+        let class_name = class_sig_from_obj(jni_env, this).unwrap_or("<unknown>".to_string());
+        debug!("Asking to fill for {}", class_name);
+    }
+
+    // Populate the field, swallow the err
+    match populate_stack_params(jni_env, this, thread) {
+        Result::Err(err_str) => {
+            debug!("Stack param fill err: {}", err_str);
+            set_param_to_null_ignore_err(jni_env, this);
+        },
+        Result::Ok(()) => ()
+    };
+    return this;
+}
+
+unsafe fn append_param_to_string(jni_env: *mut JNIEnv, this: jobject) -> Result<jobject, String> {
+    // First call the original one, then take the result and append our stuff via static call
+    let str = get_elem_str_orig(jni_env, this)?;
+    // Only if JVMTI is inited (because we need our manip class loaded)
+    if JVMTI_ENV.is_null() {
+        return Result::Ok(str);
+    }
+    // Get the param info
+    let param_info_field = get_elem_param_info_field(jni_env)?;
+    let param_info = util::result_or_jni_ex((**jni_env).GetObjectField.unwrap()(jni_env, this, param_info_field), jni_env)?;
+    if param_info.is_null() {
+        return Result::Ok(str);
+    }
+    return append_param_info(jni_env, str, param_info);
+}
+
+unsafe fn get_elem_str_orig(jni_env: *mut JNIEnv, this: jobject) -> Result<jobject, String> {
+    static mut STR_ORIG_METH: jmethodID = 0 as jmethodID;
+    static ONCE: Once = ONCE_INIT;
+    ONCE.call_once(|| {
+        let elem_class = get_elem_class(jni_env).unwrap_or(ptr::null_mut());
+        if !elem_class.is_null() {
+            // We swallow exceptions in here on purpose
+            let meth_name_str = CString::new("$$stack_param$$toString").unwrap();
+            let meth_sig_str = CString::new("()Ljava/lang/String;").unwrap();
+            STR_ORIG_METH = (**jni_env).GetMethodID.unwrap()(jni_env,
+                                                             elem_class,
+                                                             meth_name_str.as_ptr(),
+                                                             meth_sig_str.as_ptr());
+            let _ = util::result_or_jni_ex((), jni_env);
+        }
+    });
+    if STR_ORIG_METH.is_null() { return Result::Err("No $$stack_param$$toString method".to_string()); }
+    return util::result_or_jni_ex((**jni_env).CallObjectMethod.unwrap()(jni_env, this, STR_ORIG_METH), jni_env);
+}
+
+unsafe fn append_param_info(jni_env: *mut JNIEnv, str: jobject, param_info: jobject) -> Result<jobject, String> {
+    let manip_class = get_manip_class(jni_env)?;
+    static mut APPEND_METH: jmethodID = 0 as jmethodID;
+    static ONCE: Once = ONCE_INIT;
+    ONCE.call_once(|| {
+        // We swallow exceptions in here on purpose
+        let meth_name_str = CString::new("appendParamsToFrameString").unwrap();
+        let meth_sig_str = CString::new("(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;").unwrap();
+        APPEND_METH = (**jni_env).GetStaticMethodID.unwrap()(jni_env,
+                                                             manip_class,
+                                                             meth_name_str.as_ptr(),
+                                                             meth_sig_str.as_ptr());
+        let _ = util::result_or_jni_ex((), jni_env);
+    });
+    if APPEND_METH.is_null() { return Result::Err("No append method".to_string()); }
+    let ret = util::result_or_jni_ex((**jni_env).CallStaticObjectMethod.unwrap()(jni_env,
+                                                                              manip_class,
+                                                                              APPEND_METH,
+                                                                              str,
+                                                                              param_info), jni_env);
+    return ret;
+}
+
+unsafe fn get_manip_class(jni_env: *mut JNIEnv) -> Result<jclass, String> {
+    let class_name_str = CString::new("stackparam/StackParamNative").unwrap();
+    return util::result_or_jni_ex((**jni_env).FindClass.unwrap()(jni_env, class_name_str.as_ptr()), jni_env);
+}
+
+unsafe fn get_elem_class(jni_env: *mut JNIEnv) -> Result<jclass, String> {
+    let class_name_str = CString::new("java/lang/StackTraceElement").unwrap();
+    return util::result_or_jni_ex((**jni_env).FindClass.unwrap()(jni_env, class_name_str.as_ptr()), jni_env);
+}
+
+unsafe fn populate_trace_elements(jni_env: *mut JNIEnv, this: jobject) -> Result<jobject, String> {
+    // We will fill the stack trace field if it has changed and it's
+    // a non-null array with length greater than 0.
+
+    // Grab the field value
+    let field_val = util::result_or_jni_ex((**jni_env).GetObjectField.unwrap()(jni_env,
+                                                                               this,
+                                                                               get_stack_trace_field(jni_env)?), jni_env)?;
+    // Defer to original method
+    let ret = get_our_trace_orig(jni_env, this)?;
+
+    // Is the field value the same or did we get null back?
+    if ret.is_null() || ret == field_val {
+        return Result::Ok(ret);
+    }
+
+    // Is the result array size over 0?
+    let ret_len = util::result_or_jni_ex((**jni_env).GetArrayLength.unwrap()(jni_env, ret), jni_env)?;
+    if ret_len == 0 {
+        return Result::Ok(ret);
+    }
+
+    add_element_params(jni_env, this, ret, ret_len)?;
+    return Result::Ok(ret);
+}
+
+unsafe fn add_element_params(jni_env: *mut JNIEnv, this: jobject, elems: jobjectArray, elems_len: jsize) -> Result<(), String> {
+    let params = util::result_or_jni_ex((**jni_env).GetObjectField.unwrap()(jni_env,
+                                                                            this,
+                                                                            get_stack_params_field(jni_env)?), jni_env)?;
+    // If it's null we just treat it as empty
+    let params_len = if params.is_null() {
+        0
+    } else {
+        util::result_or_jni_ex((**jni_env).GetArrayLength.unwrap()(jni_env, params), jni_env)?
+    };
+
+    for index in 0..elems_len {
+        let elem = util::result_or_jni_ex((**jni_env).GetObjectArrayElement.unwrap()(jni_env, elems, index), jni_env)?;
+        if !elem.is_null() {
+            let param = if index >= params_len {
+                ptr::null_mut()
+            } else {
+                util::result_or_jni_ex((**jni_env).GetObjectArrayElement.unwrap()(jni_env, params, index), jni_env)?
+            };
+            set_elem_param_info(jni_env, param, elem)?;
+        }
+    }
+    return Result::Ok(());
+}
+
+unsafe fn get_elem_param_info_field(jni_env: *mut JNIEnv) -> Result<jfieldID, String> {
+    static mut PARAM_INFO_FIELD: jfieldID = 0 as jfieldID;
+    static ONCE: Once = ONCE_INIT;
+    ONCE.call_once(|| {
+        let elem_class = get_elem_class(jni_env).unwrap_or(ptr::null_mut());
+        if !elem_class.is_null() {
+            // We swallow exceptions in here on purpose
+            let field_name_str = CString::new("paramInfo").unwrap();
+            let field_sig_str = CString::new("[Ljava/lang/Object;").unwrap();
+            PARAM_INFO_FIELD = (**jni_env).GetFieldID.unwrap()(jni_env,
+                                                               elem_class,
+                                                               field_name_str.as_ptr(),
+                                                               field_sig_str.as_ptr());
+            let _ = util::result_or_jni_ex((), jni_env);
+        }
+    });
+    if PARAM_INFO_FIELD.is_null() { return Result::Err("No paramInfo field".to_string()); }
+    return Result::Ok(PARAM_INFO_FIELD);
+}
+
+unsafe fn set_elem_param_info(jni_env: *mut JNIEnv, param_info: jobject, on: jobject) -> Result<(), String> {
+    let param_info_field = get_elem_param_info_field(jni_env)?;
+    (**jni_env).SetObjectField.unwrap()(jni_env, on, param_info_field, param_info);
+    return util::result_or_jni_ex((), jni_env);
+}
+
+unsafe fn get_our_trace_orig(jni_env: *mut JNIEnv, this: jobject) -> Result<jobject, String> {
+    static mut TRACE_ORIG_METH: jmethodID = 0 as jmethodID;
+    static ONCE: Once = ONCE_INIT;
+    ONCE.call_once(|| {
+        let throwable_class = get_throwable_class(jni_env).unwrap_or(ptr::null_mut());
+        if !throwable_class.is_null() {
+            // We swallow exceptions in here on purpose
+            let meth_name_str = CString::new("$$stack_param$$getOurStackTrace").unwrap();
+            let meth_sig_str = CString::new("()[Ljava/lang/StackTraceElement;").unwrap();
+            TRACE_ORIG_METH = (**jni_env).GetMethodID.unwrap()(jni_env,
+                                                               throwable_class,
+                                                               meth_name_str.as_ptr(),
+                                                               meth_sig_str.as_ptr());
+            let _ = util::result_or_jni_ex((), jni_env);
+        }
+    });
+    if TRACE_ORIG_METH.is_null() { return Result::Err("No $$stack_param$$getOurStackTrace method".to_string()); }
+    return util::result_or_jni_ex((**jni_env).CallObjectMethod.unwrap()(jni_env, this, TRACE_ORIG_METH), jni_env);
+}
+
+unsafe fn get_stack_trace_field(jni_env: *mut JNIEnv) -> Result<jfieldID, String> {
+    static mut STACK_TRACE_FIELD: jfieldID = 0 as jfieldID;
+    static ONCE: Once = ONCE_INIT;
+    ONCE.call_once(|| {
+        let throwable_class = get_throwable_class(jni_env).unwrap_or(ptr::null_mut());
+        if !throwable_class.is_null() {
+            // We swallow exceptions in here on purpose
+            let field_name_str = CString::new("stackTrace").unwrap();
+            let field_sig_str = CString::new("[Ljava/lang/StackTraceElement;").unwrap();
+            STACK_TRACE_FIELD = (**jni_env).GetFieldID.unwrap()(jni_env,
+                                                                throwable_class,
+                                                                field_name_str.as_ptr(),
+                                                                field_sig_str.as_ptr());
+            let _ = util::result_or_jni_ex((), jni_env);
+        }
+    });
+    if STACK_TRACE_FIELD.is_null() { return Result::Err("No stackTrace field".to_string()); }
+    return Result::Ok(STACK_TRACE_FIELD);
+}
+
+unsafe fn populate_stack_params(jni_env: *mut JNIEnv, this: jobject, thread: jthread) -> Result<(), String> {
+    // Grab the depth we want
+    let mut depth = get_stack_trace_depth(jni_env, this)?;
+    if depth == 0 {
+        debug!("Unable to get stack trace depth, using {}", DEFAULT_MAX_STACK_DEPTH);
+        depth = DEFAULT_MAX_STACK_DEPTH;
+    }
+
+    // Load the stack params, skipping the first 2 by default which we know are not the caller
+    let mut params = get_params(jni_env, thread, depth + 10, 2)?;
+    // Only take the last so many to match the existing frame
+    if (depth as usize) < params.len() {
+        let to_remove_from_head = params.len() - (depth as usize);
+        params.drain(0..to_remove_from_head);
+    }
+
+    // Convert to object array
+    let params_arr = params_to_object_array(jni_env, params)?;
+    // Store in local field...
+    (**jni_env).SetObjectField.unwrap()(jni_env, this, get_stack_params_field(jni_env)?, params_arr);
+    return util::result_or_jni_ex((), jni_env);
+}
+
+unsafe fn get_throwable_class(jni_env: *mut JNIEnv) -> Result<jclass, String> {
+    let class_name_str = CString::new("java/lang/Throwable").unwrap();
+    return util::result_or_jni_ex((**jni_env).FindClass.unwrap()(jni_env, class_name_str.as_ptr()), jni_env);
+}
+
+unsafe fn get_stack_params_field(jni_env: *mut JNIEnv) -> Result<jfieldID, String> {
+    static mut STACK_PARAMS_FIELD: jfieldID = 0 as jfieldID;
+    static ONCE: Once = ONCE_INIT;
+    ONCE.call_once(|| {
+        let throwable_class = get_throwable_class(jni_env).unwrap_or(ptr::null_mut());
+        if !throwable_class.is_null() {
+            // We swallow exceptions in here on purpose
+            let field_name_str = CString::new("stackParams").unwrap();
+            let field_sig_str = CString::new("[[Ljava/lang/Object;").unwrap();
+            STACK_PARAMS_FIELD = (**jni_env).GetFieldID.unwrap()(jni_env,
+                                                                 throwable_class,
+                                                                 field_name_str.as_ptr(),
+                                                                 field_sig_str.as_ptr());
+            let _ = util::result_or_jni_ex((), jni_env);
+        }
+    });
+    if STACK_PARAMS_FIELD.is_null() { return Result::Err("No stackParams field".to_string()); }
+    return Result::Ok(STACK_PARAMS_FIELD);
+}
+
+unsafe fn get_stack_trace_depth(jni_env: *mut JNIEnv, this: jobject) -> Result<jint, String> {
+    static mut STACK_DEPTH_METH: jmethodID = 0 as jmethodID;
+    static ONCE: Once = ONCE_INIT;
+    ONCE.call_once(|| {
+        let throwable_class = get_throwable_class(jni_env).unwrap_or(ptr::null_mut());
+        if !throwable_class.is_null() {
+            // We swallow exceptions in here on purpose
+            let meth_name_str = CString::new("getStackTraceDepth").unwrap();
+            let meth_sig_str = CString::new("()I").unwrap();
+            STACK_DEPTH_METH = (**jni_env).GetMethodID.unwrap()(jni_env,
+                                                                throwable_class,
+                                                                meth_name_str.as_ptr(),
+                                                                meth_sig_str.as_ptr());
+            let _ = util::result_or_jni_ex((), jni_env);
+        }
+    });
+    if STACK_DEPTH_METH.is_null() { return Result::Err("No getStackTraceDepth method".to_string()); }
+    return util::result_or_jni_ex((**jni_env).CallIntMethod.unwrap()(jni_env, this, STACK_DEPTH_METH), jni_env)
 }
 
 #[no_mangle]
@@ -32,7 +356,7 @@ pub unsafe extern "C" fn Java_stackparam_StackParamNative_loadStackParams(jni_en
         return ptr::null_mut();
     }
     // TODO
-    return match get_params_as_object_array(jni_env, thread, max_depth) {
+    return match get_params_as_object_array(jni_env, thread, max_depth, 0) {
         Result::Err(err_str) => {
             debug!("Stack param err: {}", err_str);
             let _ = throw_ex_with_msg(jni_env,
@@ -44,8 +368,14 @@ pub unsafe extern "C" fn Java_stackparam_StackParamNative_loadStackParams(jni_en
     };
 }
 
-unsafe fn get_params_as_object_array(jni_env: *mut JNIEnv, thread: jthread, max_depth: jint) -> Result<jobjectArray, String> {
-    let methods = get_params(jni_env, thread, max_depth)?;
+unsafe fn get_params_as_object_array(jni_env: *mut JNIEnv,
+                                     thread: jthread,
+                                     max_depth: jint,
+                                     index_until_start: usize) -> Result<jobjectArray, String> {
+    return params_to_object_array(jni_env, get_params(jni_env, thread, max_depth, index_until_start)?);
+}
+
+unsafe fn params_to_object_array(jni_env: *mut JNIEnv, methods: Vec<MethodInfo>) -> Result<jobjectArray, String> {
     let obj_str = CString::new("java/lang/Object").unwrap();
     let obj_class = util::result_or_jni_ex((**jni_env).FindClass.unwrap()(jni_env, obj_str.as_ptr()), jni_env)?;
     let obj_arr_str = CString::new("[Ljava/lang/Object;").unwrap();
@@ -101,15 +431,34 @@ unsafe fn throw_ex_with_msg(jni_env: *mut JNIEnv, ex_class: &str, ex_msg: &str) 
     return Result::Ok(());
 }
 
-unsafe fn get_params(jni_env: *mut JNIEnv, thread: jthread, max_depth: jint) -> Result<Vec<MethodInfo>, String> {
+unsafe fn get_params(jni_env: *mut JNIEnv,
+                     thread: jthread,
+                     max_depth: jint,
+                     index_until_start: usize) -> Result<Vec<MethodInfo>, String> {
     // Grab the trace
     let trace = get_stack_trace(thread, max_depth)?;
     // Go over every frame getting the info
     let mut ret: Vec<MethodInfo> = Vec::new();
     for (index, frame) in trace.iter().enumerate() {
-        ret.push(get_frame_params(jni_env, thread, frame, index as jint)?);
+        if index >= index_until_start {
+            ret.push(get_frame_params(jni_env, thread, frame, index as jint)?);
+        }
     }
     return Result::Ok(ret);
+}
+
+unsafe fn class_sig(class: jclass) -> Result<String, String> {
+    let mut sig: *mut c_char = 0 as *mut c_char;
+    let sig_res = (**JVMTI_ENV).GetClassSignature.unwrap()(JVMTI_ENV, class, &mut sig, ptr::null_mut());
+    util::unit_or_jvmti_err(sig_res)?;
+    let sig_str = CStr::from_ptr(sig).to_string_lossy().clone().into_owned();
+    dealloc(sig)?;
+    return Result::Ok(sig_str);
+}
+
+unsafe fn class_sig_from_obj(jni_env: *mut JNIEnv, obj: jobject) -> Result<String, String> {
+    let class = util::result_or_jni_ex((**jni_env).GetObjectClass.unwrap()(jni_env, obj), jni_env)?;
+    return class_sig(class);
 }
 
 unsafe fn method_name(method: jmethodID) -> Result<String, String> {
@@ -136,18 +485,18 @@ unsafe fn get_stack_trace(thread: jthread, max_depth: jint) -> Result<Vec<jvmtiF
 }
 
 unsafe fn get_frame_params(jni_env: *mut JNIEnv, thread: jthread, frame: &jvmtiFrameInfo, depth: jint) -> Result<MethodInfo, String> {
-    if log_enabled!(Debug) { debug!("Getting info for {}", method_name(frame.method)?); }
+    if log_enabled!(Trace) { trace!("Getting info for {}", method_name(frame.method)?); }
     let mut method = get_method_param_info(frame.method)?;
     let is_native = method.mods & 0x00000100 != 0;
     if is_native {
-        debug!("Native method, not applying local table or getting values");
+        trace!("Native method, not applying local table or getting values");
     } else {
-        debug!("Applying local table");
+        trace!("Applying local table");
         apply_local_var_table(frame.method, &mut method)?;
     }
     // Apply the param values if we can get them
     for param in method.params.iter_mut() {
-        debug!("Var named {} at slot {} has type {}", param.name, param.slot, param.typ);
+        trace!("Var named {} at slot {} has type {}", param.name, param.slot, param.typ);
         // Now get the local var if we can
         if param.slot == 0 && param.name == "this" {
             param.val = Some(get_this(thread, depth)?);
@@ -367,9 +716,9 @@ unsafe fn apply_local_var_table(method: jmethodID, info: &mut MethodInfo) -> Res
     }
     util::unit_or_jvmti_err(table_res)?;
     let entry_slice = slice::from_raw_parts(entries, entry_count as usize);
-    if log_enabled!(Debug) {
+    if log_enabled!(Trace) {
         for entry in entry_slice {
-            debug!("Var table entry named {} at slot {} has type {}",
+            trace!("Var table entry named {} at slot {} has type {}",
             CStr::from_ptr(entry.name).to_string_lossy(),
             entry.slot, CStr::from_ptr(entry.signature).to_string_lossy());
         }

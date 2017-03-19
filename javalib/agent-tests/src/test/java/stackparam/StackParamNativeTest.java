@@ -1,9 +1,10 @@
 package stackparam;
 
-import static org.junit.Assert.*;
 import org.junit.Test;
 
 import java.util.Arrays;
+
+import static org.junit.Assert.assertArrayEquals;
 
 public class StackParamNativeTest {
 

@@ -2,15 +2,15 @@
 extern crate log;
 extern crate env_logger;
 extern crate zip;
-extern crate stack_param;
+extern crate stackparam;
 
 use std::env;
 use std::path::PathBuf;
 use std::fs::File;
 use zip::ZipArchive;
 use std::io::{Cursor, Read};
-use stack_param::bytecode::io::reader::ClassReader;
-use stack_param::bytecode::io::writer::ClassWriter;
+use stackparam::bytecode::io::reader::ClassReader;
+use stackparam::bytecode::io::writer::ClassWriter;
 
 #[test]
 #[ignore]
