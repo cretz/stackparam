@@ -148,7 +148,7 @@ makes the params less predictably navigable.
 
 Instead, you can either add the above contents in a `stackparam.StackParamNative` class in your source code or you can
 add a dependency to the `native` library JAR to your build file via
-[`JitPack`](https://jitpack.io/#com.github.cretz.stackparam/native). Even though it is included, the file/JAR
+[`JitPack`](https://jitpack.io/#com.github.cretz.stackparam/native/0.1.0). Even though it is included, the file/JAR
 will never be directly used because the actual class is injected early at VM startup.
 
 Once in place, you can do neat things like grab the caller, e.g.:
