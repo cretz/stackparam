@@ -114,7 +114,7 @@ standard error stream.
 ### Programmatic Value Access
 
 In addition to just showing parameters, the
-[`stackparam.StackParamNative`](native/src/main/java/stackparam/StackParamNative.java) class is automatically injected.
+[`stackparam.StackParamNative`](javalib/native/src/main/java/stackparam/StackParamNative.java) class is automatically injected.
 This class provides the following `loadStackParams` method:
 
 ```java
