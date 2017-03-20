@@ -2,8 +2,6 @@ package stackparam;
 
 import org.junit.Test;
 
-import java.util.Arrays;
-
 import static org.junit.Assert.assertArrayEquals;
 
 public class StackParamNativeTest {
@@ -27,7 +25,7 @@ public class StackParamNativeTest {
             "objectExactArg", "Ljava/lang/Object;", CONST_OBJ,
             "stringVarArgs", "[Ljava/lang/String;", new String[] { "foo", "bar", "baz" }
         };
-        assertArrayEquals(expectedOtherMethodArgs, stackParams[0]);
+        assertArrayEquals(expectedOtherMethodArgs, stackParams[1]);
 
         Object[] expectedStringMethodArgs = {
             "this",
@@ -37,7 +35,7 @@ public class StackParamNativeTest {
             "Ljava/lang/String;",
             "Some string"
         };
-        assertArrayEquals(expectedStringMethodArgs, stackParams[1]);
+        assertArrayEquals(expectedStringMethodArgs, stackParams[2]);
     }
 
     private Object[][] instanceWithStringArg(String stringArg) {
@@ -51,19 +49,6 @@ public class StackParamNativeTest {
                                             short shortArg, int intArg, long longArg,
                                             float floatArg, double doubleArg, Object nullArg,
                                             Object objectExactArg, String... stringVarArgs) {
-        Object[][] stackParams;
-        try {
-            stackParams = (Object[][]) Class.forName("stackparam.StackParamNative").
-                    getMethod("loadStackParams", Thread.class, int.class).
-                    invoke(null, Thread.currentThread(), 500);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        // Grab the exception stack trace, and use the stack element count to
-        // know how much to trim off the top of our params. The problem is that
-        // the stack we're given includes the reflection call which has a few
-        // classes.
-        return Arrays.copyOfRange(stackParams,
-                stackParams.length - (new Exception().getStackTrace().length), stackParams.length);
+        return StackParamNative.loadStackParams(Thread.currentThread(), 3);
     }
 }

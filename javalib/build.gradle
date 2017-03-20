@@ -29,6 +29,11 @@ project(':native') {
 }
 
 project(':agent-tests') {
+
+    dependencies {
+        compile project(':native')
+    }
+
     test {
         testLogging.showStandardStreams = true
         testLogging.showExceptions = true

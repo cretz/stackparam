@@ -1,1 +1,1 @@
-Taken from https://github.com/xea/rust-jvmti with much thanks.
+Taken from https://github.com/xea/rust-jvmti with many thanks.

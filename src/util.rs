@@ -56,7 +56,7 @@ pub unsafe fn find_method(jvmti_env: *mut jvmtiEnv,
         name_ret == 0 && CStr::from_ptr(method_name).to_str().unwrap() == name
     });
     return match ret {
-               Some(&method) => Result::Ok(method),
-               None => Result::Err("Method not found".to_string()),
-           };
+        Some(&method) => Result::Ok(method),
+        None => Result::Err("Method not found".to_string()),
+    };
 }

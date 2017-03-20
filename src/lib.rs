@@ -68,12 +68,8 @@ unsafe fn get_env(vm: *mut JavaVM) -> Result<*mut jvmtiEnv, String> {
 
 unsafe fn add_capabilities(jvmti_env: *mut jvmtiEnv) -> Result<(), String> {
     let caps = jvmtiCapabilities {
-        // can_redefine_any_class | can_generate_all_class_hook_events
-        //_bindgen_bitfield_1_: 0x00200000 | 0x04000000,
         // can_access_local_variables | can_generate_all_class_hook_events
         _bindgen_bitfield_1_: 0x00004000 | 0x04000000,
-        // can_retransform_classes | can_retransform_any_class
-        //_bindgen_bitfield_2_: 0x00000020 | 0x00000040,
         ..Default::default()
     };
     return util::unit_or_jvmti_err((**jvmti_env).AddCapabilities.unwrap()(jvmti_env, &caps));
@@ -94,7 +90,6 @@ unsafe fn set_event_callbacks(jvmti_env: *mut jvmtiEnv) -> Result<(), String> {
 
 unsafe fn enable_notifications(jvmti_env: *mut jvmtiEnv) -> Result<(), String> {
     enable_notification(jvmti_env, jvmtiEvent::JVMTI_EVENT_VM_INIT)?;
-    enable_notification(jvmti_env, jvmtiEvent::JVMTI_EVENT_VM_START)?;
     return enable_notification(jvmti_env, jvmtiEvent::JVMTI_EVENT_CLASS_FILE_LOAD_HOOK);
 }
 
